@@ -36,7 +36,7 @@ class Config:
 
     # --- Risk (hard limits) ---------------------------------------------------
     risk_per_trade: float = 2_000      # 1% of capital at the planned stop
-    max_daily_loss: float = 4_000      # 2% — stop trading for the day
+    max_daily_loss: float = 3_000      # 1.5% — stop trading for the day
     max_monthly_loss: float = 20_000   # 10% — stop trading for the rest of the month
     max_lots: int = 2
     max_premium_pct: float = 0.30      # never put more than 30% of capital into premium

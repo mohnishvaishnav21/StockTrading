@@ -194,3 +194,19 @@ def test_kite_pricer_with_fake_client():
     assert pricer.price(opt, 25_000, datetime(2025, 3, 5, 10)) == 123.45
     with pytest.raises(KeyError):
         pricer.symbol(Option("NIFTY", date(2025, 3, 11), 25_050, "CE"))
+
+
+def test_completed_bars_from_1min():
+    import pandas as pd
+    from fno_bot.live import completed_bars
+
+    idx = pd.date_range("2025-03-05 09:15", periods=12, freq="1min")  # 09:15 … 09:26
+    df = pd.DataFrame({"open": range(12), "high": [x + 1 for x in range(12)],
+                       "low": range(12), "close": range(12)}, index=idx, dtype=float)
+    bars = completed_bars(df, 5, datetime(2025, 3, 5, 9, 27, 10))
+    assert [b.ts.minute for b in bars] == [15, 20]   # 09:25 bar still forming
+    assert bars[0].open == 0 and bars[0].high == 5 and bars[0].close == 4
+
+
+def test_daily_loss_cap_is_3000():
+    assert Config().max_daily_loss == 3_000

@@ -139,3 +139,61 @@ def run_paper(cfg: Config | None = None, poll_seconds: float = 2.0) -> None:
     if session.position and spot is not None:
         session.force_close(datetime.now(), spot, "square-off")
     log.info("Day done. Trades: %d, net ₹%.0f", len(broker.trades), session.risk.day_pnl)
+
+
+# ------------------------------------------------- free mode (no Kite needed)
+def completed_bars(df_1m, minutes: int, now: datetime) -> list[Bar]:
+    """Group 1-min candles into `minutes` bars; return only bars that have finished."""
+    if df_1m.empty:
+        return []
+    agg = df_1m.resample(f"{minutes}min").agg(
+        {"open": "first", "high": "max", "low": "min", "close": "last"}).dropna()
+    last_data = df_1m.index[-1] + timedelta(minutes=1)
+    cutoff = min(last_data, now)
+    return [Bar(ts.to_pydatetime(), r.open, r.high, r.low, r.close)
+            for ts, r in agg.iterrows() if ts + timedelta(minutes=minutes) <= cutoff]
+
+
+def run_paper_free(cfg: Config | None = None, poll_seconds: float = 60.0) -> None:
+    """Paper trade with free Yahoo Finance Nifty data and Black-Scholes option prices.
+
+    Limitations vs the Kite mode: option prices are ESTIMATES from the index
+    (real premiums move with IV and skew), Yahoo data can lag by a minute or
+    more, and stops are checked once per poll.
+    """
+    from .data import fetch_yfinance
+
+    cfg = cfg or Config()
+    broker = PaperBroker(cfg.slippage_pct, journal_path="journal/paper_trades_free.csv")
+    session = TradingSession(cfg, BlackScholesPricer(cfg), broker)
+    now = datetime.now()
+    if now.time() > cfg.or_end:
+        log.warning("Started after %s — opening range is missing, no trades today.", cfg.or_end)
+    session.start_day(now.date())
+    log.info("FREE paper mode: Yahoo 1-min Nifty + estimated option prices. "
+             "Daily loss cap ₹%.0f", cfg.max_daily_loss)
+
+    close_time = (datetime.combine(now.date(), cfg.square_off) + timedelta(minutes=1)).time()
+    seen: set[datetime] = set()
+    spot = None
+    while datetime.now().time() < close_time:
+        now = datetime.now()
+        try:
+            df = fetch_yfinance(period="1d", interval="1m")
+            df = df[df.index.date == now.date()]
+        except Exception as e:
+            log.error("data fetch failed: %s", e)
+            _time.sleep(poll_seconds)
+            continue
+        if not df.empty:
+            for bar in completed_bars(df, cfg.bar_minutes, now):
+                if bar.ts not in seen:
+                    seen.add(bar.ts)
+                    session.on_bar(bar)
+            spot = float(df.close.iloc[-1])
+            session.on_tick(now, spot)
+        _time.sleep(poll_seconds)
+
+    if session.position and spot is not None:
+        session.force_close(datetime.now(), spot, "square-off")
+    log.info("Day done. Trades: %d, net ₹%.0f", len(broker.trades), session.risk.day_pnl)

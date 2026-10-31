@@ -5,7 +5,8 @@
   python main.py backtest --yfinance             # last ~60 days from Yahoo
   python main.py backtest --kite --days 365      # Kite historical (data subscription)
   python main.py login                           # daily Kite login
-  python main.py paper                           # live paper trading (no real orders)
+  python main.py paper --free                    # live paper, free Yahoo data (no Kite)
+  python main.py paper                           # live paper with Kite Connect data
 """
 import argparse
 import logging
@@ -32,7 +33,8 @@ def main() -> None:
 
     sub.add_parser("login")
     pp = sub.add_parser("paper")
-    pp.add_argument("--poll", type=float, default=2.0)
+    pp.add_argument("--free", action="store_true", help="use free Yahoo data, no Kite subscription")
+    pp.add_argument("--poll", type=float, help="seconds between price checks (default 2, or 60 with --free)")
 
     args = p.parse_args()
     verbose = getattr(args, "verbose", False) or args.cmd == "paper"
@@ -44,8 +46,12 @@ def main() -> None:
         from fno_bot.live import login
         login()
     elif args.cmd == "paper":
-        from fno_bot.live import run_paper
-        run_paper(cfg, args.poll)
+        if args.free:
+            from fno_bot.live import run_paper_free
+            run_paper_free(cfg, args.poll or 60.0)
+        else:
+            from fno_bot.live import run_paper
+            run_paper(cfg, args.poll or 2.0)
     else:
         from fno_bot import data
         if args.iv:

@@ -12,7 +12,7 @@ honest about results before any real money is involved.
 | Part | File | Purpose |
 |---|---|---|
 | Strategy | `fno_bot/strategy.py` | Opening Range Breakout on 5-min Nifty: break above 09:15–09:30 high → buy ATM Call; break below low → buy ATM Put |
-| Risk manager | `fno_bot/risk.py` | Hard limits: ₹2,000 risk/trade, ₹4,000 max daily loss, ₹20,000 max monthly loss, max 2 lots, max 2 trades/day |
+| Risk manager | `fno_bot/risk.py` | Hard limits: ₹2,000 risk/trade, ₹3,000 max daily loss, ₹20,000 max monthly loss, max 2 lots, max 2 trades/day |
 | Engine | `fno_bot/session.py` | One engine for backtest **and** live paper — stop/target/square-off/limit checks |
 | Costs | `fno_bot/costs.py` | Zerodha options charges: brokerage, STT, exchange, SEBI, stamp, GST |
 | Backtest | `fno_bot/backtest.py` | Replays history, reports win rate, drawdown, profit factor, charges |
@@ -24,7 +24,7 @@ All settings live in `fno_bot/config.py` (sized for ₹2,00,000 capital).
 
 ```bash
 pip install -r requirements.txt
-python -m pytest              # 15 tests
+python -m pytest              # 17 tests
 python main.py backtest --synthetic   # checks everything runs (fake data!)
 ```
 
@@ -44,6 +44,17 @@ Trades and daily P&L go to `reports/`. Backtests price options with
 Black-Scholes at a flat IV (`--iv` to change), so treat results as approximate.
 
 **Phase 2 — Live paper trading (4–6 weeks minimum).**
+
+*Free option (no subscription):* start before 09:15 on a trading day and leave it running:
+```bash
+python main.py paper --free
+```
+It polls Nifty 1-min data from Yahoo every 60 s and **estimates** option prices
+with Black-Scholes. Trades go to `journal/paper_trades_free.csv`. Good enough to
+see how the strategy behaves day to day; not good enough to trust the exact
+rupee numbers (real premiums move with IV, and Yahoo can lag).
+
+*Kite option (paid data, real option prices):*
 1. Create an app at the Kite Connect developer console (paid subscription for
    market data — check Zerodha's site for current pricing). Set its redirect URL.
 2. Export credentials (never commit them):
