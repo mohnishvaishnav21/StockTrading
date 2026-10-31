@@ -1,0 +1,7 @@
+pandas>=2.0
+numpy>=1.24
+# Market data / broker (optional until you go beyond synthetic/CSV backtests)
+yfinance>=0.2.40
+kiteconnect>=5.0
+# Dev
+pytest>=8.0
